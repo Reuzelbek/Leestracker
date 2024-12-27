@@ -7,39 +7,9 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     
-    <!-- PWA Support -->
-    <link rel="manifest" id="my-manifest-placeholder">
-    <meta name="theme-color" content="#ffffff">
-    <script>
-        // Generate manifest dynamically
-        const manifestData = {
-            "name": "Leesvoortgang Tracker",
-            "short_name": "LeesTracker",
-            "start_url": ".",
-            "display": "standalone",
-            "background_color": "#ffffff",
-            "theme_color": "#ffffff",
-            "icons": [{
-                "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%234A90E2'/%3E%3Cpath d='M128 128h256v32H128zM128 192h256v32H128zM128 256h256v32H128zM128 320h128v32H128z' fill='white'/%3E%3C/svg%3E",
-                "sizes": "512x512",
-                "type": "image/svg+xml"
-            }]
-        };
-        
-        const blob = new Blob([JSON.stringify(manifestData)], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(blob);
-        document.querySelector('#my-manifest-placeholder').setAttribute('href', manifestURL);
-    </script>
-
-    <style>
-        .book-card {
-            transition: all 0.3s ease;
-        }
-        .book-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-100">
     <div class="max-w-4xl mx-auto p-4">
@@ -71,17 +41,37 @@
     </div>
 
     <script>
-        // Data management
-        let books = JSON.parse(localStorage.getItem('books') || '[]');
+        // Firebase configuratie
+        const firebaseConfig = {
+            apiKey: "AIzaSyDkyYPJLejam_NnD0XbGybJoHlctD7SoSw",
+            authDomain: "leestracker.firebaseapp.com",
+            projectId: "leestracker",
+            storageBucket: "leestracker.firebasestorage.app",
+            messagingSenderId: "940533341630",
+            appId: "1:940533341630:web:09724ea8ed82899cc6adef"
+        };
 
-        function saveBooks() {
-            localStorage.setItem('books', JSON.stringify(books));
-            renderBooks();
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const booksCollection = db.collection('books');
+
+        // Data management
+        let books = [];
+
+        // Laad boeken van Firebase
+        function loadBooks() {
+            booksCollection.orderBy('startDate', 'desc').onSnapshot((snapshot) => {
+                books = [];
+                snapshot.forEach((doc) => {
+                    books.push({ id: doc.id, ...doc.data() });
+                });
+                renderBooks();
+            });
         }
 
-        function addBook(title, totalPages, currentPage = 0) {
+        async function addBook(title, totalPages, currentPage = 0) {
             const book = {
-                id: Date.now(),
                 title,
                 totalPages: parseInt(totalPages),
                 currentPage: parseInt(currentPage) || 0,
@@ -91,33 +81,48 @@
                     page: parseInt(currentPage) || 0
                 }]
             };
-            books.push(book);
-            saveBooks();
-        }
-
-        function updateProgress(bookId, newPage) {
-            const book = books.find(b => b.id === bookId);
-            if (!book) return;
-
-            const today = new Date().toISOString().split('T')[0];
-            const lastEntry = book.progress[book.progress.length - 1];
-
-            if (lastEntry && lastEntry.date === today) {
-                book.progress[book.progress.length - 1].page = parseInt(newPage);
-            } else {
-                book.progress.push({
-                    date: today,
-                    page: parseInt(newPage)
-                });
+            
+            try {
+                await booksCollection.add(book);
+            } catch (error) {
+                console.error("Error adding book:", error);
+                alert("Er ging iets mis bij het toevoegen van het boek. Probeer het opnieuw.");
             }
-
-            book.currentPage = parseInt(newPage);
-            saveBooks();
         }
 
-        function deleteBook(bookId) {
-            books = books.filter(b => b.id !== bookId);
-            saveBooks();
+        async function updateProgress(bookId, newPage) {
+            try {
+                const bookRef = booksCollection.doc(bookId);
+                const bookDoc = await bookRef.get();
+                const book = bookDoc.data();
+                
+                const today = new Date().toISOString().split('T')[0];
+                const progress = [...book.progress];
+                const lastEntry = progress[progress.length - 1];
+
+                if (lastEntry && lastEntry.date === today) {
+                    progress[progress.length - 1] = { date: today, page: parseInt(newPage) };
+                } else {
+                    progress.push({ date: today, page: parseInt(newPage) });
+                }
+
+                await bookRef.update({
+                    currentPage: parseInt(newPage),
+                    progress: progress
+                });
+            } catch (error) {
+                console.error("Error updating progress:", error);
+                alert("Er ging iets mis bij het bijwerken van de voortgang. Probeer het opnieuw.");
+            }
+        }
+
+        async function deleteBook(bookId) {
+            try {
+                await booksCollection.doc(bookId).delete();
+            } catch (error) {
+                console.error("Error deleting book:", error);
+                alert("Er ging iets mis bij het verwijderen van het boek. Probeer het opnieuw.");
+            }
         }
 
         function calculateDaysLeft(book) {
@@ -145,7 +150,7 @@
                 bookEl.innerHTML = `
                     <div class="flex justify-between items-start mb-4">
                         <h3 class="text-xl font-semibold">${book.title}</h3>
-                        <button onclick="deleteBook(${book.id})" 
+                        <button onclick="deleteBook('${book.id}')" 
                             class="text-red-500 hover:text-red-700">
                             ❌
                         </button>
@@ -175,7 +180,7 @@
                         <div class="flex space-x-4 items-center">
                             <input type="number" 
                                 value="${book.currentPage}"
-                                onchange="updateProgress(${book.id}, this.value)"
+                                onchange="updateProgress('${book.id}', this.value)"
                                 class="w-24 p-2 border rounded focus:ring-2 focus:ring-blue-500">
                             <span class="text-sm text-gray-600">
                                 van ${book.totalPages} pagina's
@@ -233,33 +238,8 @@
             e.target.reset();
         });
 
-        // Register Service Worker for PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('data:application/javascript;base64,'+btoa(`
-                self.addEventListener('install', (e) => {
-                    e.waitUntil(
-                        caches.open('leesvoortgang-v1').then((cache) => {
-                            return cache.addAll([
-                                './',
-                                'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
-                                'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js'
-                            ]);
-                        })
-                    );
-                });
-
-                self.addEventListener('fetch', (e) => {
-                    e.respondWith(
-                        caches.match(e.request).then((response) => {
-                            return response || fetch(e.request);
-                        })
-                    );
-                });
-            `));
-        }
-
-        // Initial render
-        renderBooks();
+        // Start loading books
+        loadBooks();
     </script>
 </body>
 </html>
