@@ -40,16 +40,26 @@
         <div id="booksList" class="space-y-6"></div>
     </div>
 
-    <script>
-        // Firebase configuratie
-        const firebaseConfig = {
-            apiKey: "AIzaSyDkyYPJLejam_NnD0XbGybJoHlctD7SoSw",
-            authDomain: "leestracker.firebaseapp.com",
-            projectId: "leestracker",
-            storageBucket: "leestracker.firebasestorage.app",
-            messagingSenderId: "940533341630",
-            appId: "1:940533341630:web:09724ea8ed82899cc6adef"
-        };
+ ```javascript
+// Firebase configuratie
+const firebaseConfig = {
+    apiKey: window.location.hostname === "reuzelbek.github.io" 
+        ? "AIzaSyDkyYPJLejam_NnD0XbGybJoHlctD7SoSw" 
+        : null,
+    authDomain: "leestracker.firebaseapp.com",
+    projectId: "leestracker",
+    storageBucket: "leestracker.firebasestorage.app",
+    messagingSenderId: "940533341630",
+    appId: "1:940533341630:web:09724ea8ed82899cc6adef"
+};
+
+// Controleer of we op de juiste domein zijn
+if (!firebaseConfig.apiKey) {
+    console.error("Unauthorized domain");
+    document.body.innerHTML = '<div class="p-4">Error: Unauthorized domain</div>';
+    throw new Error("Unauthorized domain");
+}
+```
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
