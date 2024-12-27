@@ -1,3 +1,4 @@
+<antArtifact identifier="reading-tracker-final" type="text/html" title="Leesvoortgang Tracker - Final Version">
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -6,8 +7,6 @@
     <title>Leesvoortgang Tracker</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
-    
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 </head>
@@ -40,21 +39,16 @@
         <div id="booksList" class="space-y-6"></div>
     </div>
 
-```javascript
-// Firebase configuratie
-const firebaseConfig = {
-    apiKey: "AIzaSyDkyYPJLejam_NnD0XbGybJoHlctD7SoSw",  // We gebruiken nu direct de key
-    authDomain: "leestracker.firebaseapp.com",
-    projectId: "leestracker",
-    storageBucket: "leestracker.firebasestorage.app",
-    messagingSenderId: "940533341630",
-    appId: "1:940533341630:web:09724ea8ed82899cc6adef"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-```
+    <script>
+        // Firebase configuratie
+        const firebaseConfig = {
+            apiKey: "AIzaSyDkyYPJLejam_NnD0XbGybJoHlctD7SoSw",
+            authDomain: "leestracker.firebaseapp.com",
+            projectId: "leestracker",
+            storageBucket: "leestracker.firebasestorage.app",
+            messagingSenderId: "940533341630",
+            appId: "1:940533341630:web:09724ea8ed82899cc6adef"
+        };
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
