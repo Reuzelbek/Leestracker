@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leesvoortgang Tracker</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    
+    <!-- PWA Support -->
+    <link rel="manifest" id="my-manifest-placeholder">
+    <meta name="theme-color" content="#ffffff">
+    <script>
+        // Generate manifest dynamically
+        const manifestData = {
+            "name": "Leesvoortgang Tracker",
+            "short_name": "LeesTracker",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#ffffff",
+            "theme_color": "#ffffff",
+            "icons": [{
+                "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%234A90E2'/%3E%3Cpath d='M128 128h256v32H128zM128 192h256v32H128zM128 256h256v32H128zM128 320h128v32H128z' fill='white'/%3E%3C/svg%3E",
+                "sizes": "512x512",
+                "type": "image/svg+xml"
+            }]
+        };
+        
+        const blob = new Blob([JSON.stringify(manifestData)], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        document.querySelector('#my-manifest-placeholder').setAttribute('href', manifestURL);
+    </script>
+
+    <style>
+        .book-card {
+            transition: all 0.3s ease;
+        }
+        .book-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="max-w-4xl mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center my-8">📚 Leesvoortgang Tracker</h1>
+        
+        <!-- Nieuw Boek Form -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Nieuw Boek Toevoegen</h2>
+            <form id="newBookForm" class="space-y-4">
+                <div>
+                    <input type="text" id="bookTitle" placeholder="Boektitel" required
+                        class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" id="totalPages" placeholder="Totaal pagina's" required
+                        class="p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                    <input type="number" id="currentPage" placeholder="Huidige pagina" 
+                        class="p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" 
+                    class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition">
+                    Boek Toevoegen
+                </button>
+            </form>
+        </div>
+
+        <!-- Boeken Lijst -->
+        <div id="booksList" class="space-y-6"></div>
+    </div>
+
+    <script>
+        // Data management
+        let books = JSON.parse(localStorage.getItem('books') || '[]');
+
+        function saveBooks() {
+            localStorage.setItem('books', JSON.stringify(books));
+            renderBooks();
+        }
+
+        function addBook(title, totalPages, currentPage = 0) {
+            const book = {
+                id: Date.now(),
+                title,
+                totalPages: parseInt(totalPages),
+                currentPage: parseInt(currentPage) || 0,
+                startDate: new Date().toISOString().split('T')[0],
+                progress: [{
+                    date: new Date().toISOString().split('T')[0],
+                    page: parseInt(currentPage) || 0
+                }]
+            };
+            books.push(book);
+            saveBooks();
+        }
+
+        function updateProgress(bookId, newPage) {
+            const book = books.find(b => b.id === bookId);
+            if (!book) return;
+
+            const today = new Date().toISOString().split('T')[0];
+            const lastEntry = book.progress[book.progress.length - 1];
+
+            if (lastEntry && lastEntry.date === today) {
+                book.progress[book.progress.length - 1].page = parseInt(newPage);
+            } else {
+                book.progress.push({
+                    date: today,
+                    page: parseInt(newPage)
+                });
+            }
+
+            book.currentPage = parseInt(newPage);
+            saveBooks();
+        }
+
+        function deleteBook(bookId) {
+            books = books.filter(b => b.id !== bookId);
+            saveBooks();
+        }
+
+        function calculateDaysLeft(book) {
+            const pagesLeft = book.totalPages - book.currentPage;
+            const pagesPerDay = book.totalPages / 10; // 10 dagen per boek
+            return Math.ceil(pagesLeft / pagesPerDay);
+        }
+
+        function getProgressPercentage(book) {
+            return Math.round((book.currentPage / book.totalPages) * 100);
+        }
+
+        // UI Rendering
+        function renderBooks() {
+            const container = document.getElementById('booksList');
+            container.innerHTML = '';
+
+            books.forEach(book => {
+                const bookEl = document.createElement('div');
+                bookEl.className = 'book-card bg-white rounded-lg shadow p-6';
+                
+                const progressPercent = getProgressPercentage(book);
+                const daysLeft = calculateDaysLeft(book);
+
+                bookEl.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-xl font-semibold">${book.title}</h3>
+                        <button onclick="deleteBook(${book.id})" 
+                            class="text-red-500 hover:text-red-700">
+                            ❌
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="relative pt-1">
+                            <div class="flex mb-2 items-center justify-between">
+                                <div>
+                                    <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                                        Voortgang
+                                    </span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xs font-semibold inline-block text-blue-600">
+                                        ${progressPercent}%
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+                                <div style="width:${progressPercent}%" 
+                                    class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-4 items-center">
+                            <input type="number" 
+                                value="${book.currentPage}"
+                                onchange="updateProgress(${book.id}, this.value)"
+                                class="w-24 p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                            <span class="text-sm text-gray-600">
+                                van ${book.totalPages} pagina's
+                            </span>
+                        </div>
+
+                        <div class="text-sm ${daysLeft < 0 ? 'text-red-600' : 'text-gray-600'}">
+                            ${daysLeft < 0 
+                                ? `Je bent ${Math.abs(daysLeft)} dagen over tijd` 
+                                : `Nog ${daysLeft} dagen om op schema te blijven`}
+                        </div>
+
+                        <canvas id="chart-${book.id}" class="mt-4"></canvas>
+                    </div>
+                `;
+
+                container.appendChild(bookEl);
+
+                // Render chart
+                const ctx = document.getElementById(`chart-${book.id}`).getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: book.progress.map(p => p.date),
+                        datasets: [{
+                            label: 'Pagina\'s gelezen',
+                            data: book.progress.map(p => p.page),
+                            borderColor: 'rgb(59, 130, 246)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: book.totalPages
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        // Event Listeners
+        document.getElementById('newBookForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('bookTitle').value;
+            const totalPages = document.getElementById('totalPages').value;
+            const currentPage = document.getElementById('currentPage').value;
+            
+            addBook(title, totalPages, currentPage);
+            
+            // Reset form
+            e.target.reset();
+        });
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:application/javascript;base64,'+btoa(`
+                self.addEventListener('install', (e) => {
+                    e.waitUntil(
+                        caches.open('leesvoortgang-v1').then((cache) => {
+                            return cache.addAll([
+                                './',
+                                'https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css',
+                                'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js'
+                            ]);
+                        })
+                    );
+                });
+
+                self.addEventListener('fetch', (e) => {
+                    e.respondWith(
+                        caches.match(e.request).then((response) => {
+                            return response || fetch(e.request);
+                        })
+                    );
+                });
+            `));
+        }
+
+        // Initial render
+        renderBooks();
+    </script>
+</body>
+</html>
+</antArtifact>
